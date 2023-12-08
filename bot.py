@@ -8,7 +8,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from database_handler import SQLiteHandler
+from database_handler import SQLiteHandler, PostrgreSQLHandler
 
 import dotenv
 
@@ -19,10 +19,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 bot = Bot(os.getenv("TOKEN"))
 dp = Dispatcher()
 
+
 # === Database ===
-db_handler = SQLiteHandler()
-db_handler.set_table('users')
-db_handler.open_connection()
+# db_handler = SQLiteHandler()
+# db_handler.set_table('users')
+# db_handler.open_connection()
+db_handler = PostrgreSQLHandler()
+async def connect_to_db():
+    await db_handler.set_table('users')
+    await db_handler.open_connection(os.getenv('POSTGRES_CONNECTION_STRING'))
+    await db_handler.create_table()
 
 
 async def create_inline_menu(buttons: list[list], buttons_callback: list[list] = "None"):
@@ -38,7 +44,7 @@ async def create_inline_menu(buttons: list[list], buttons_callback: list[list] =
 
 @dp.message(CommandStart())
 async def start_message(message: types.Message):
-    if is_user_in_db(message.chat.id):
+    if await is_user_in_db(message.chat.id):
         await show_main_menu(message.chat.id)
     else:
         buttons = [
@@ -62,16 +68,16 @@ async def show_main_menu(chat_id):
     await bot.send_message(chat_id=chat_id, text="Главное меню", reply_markup=keyboard)
 
 
-def is_user_in_db(chat_id) -> bool:
-    user = get_user_by_chat_id(chat_id)
+async def is_user_in_db(chat_id) -> bool:
+    user = await get_user_by_chat_id(chat_id)
     if user:
         return True
     else:
         return False
 
 
-def get_user_by_chat_id(chat_id: int) -> list | None:
-    result = db_handler.select_user(chat_id=chat_id)
+async def get_user_by_chat_id(chat_id: int) -> list | None:
+    result = await db_handler.select_user(chat_id=chat_id)
     return result
 
 
@@ -79,7 +85,7 @@ async def write_user_in_db(callback: aiogram.types.CallbackQuery, role: str) -> 
     chat_id = callback.message.chat.id
     username = callback.from_user.username
     firstname = callback.from_user.first_name
-    db_handler.write_user(chat_id=chat_id, username=username, firstname=firstname, role=role)
+    await db_handler.write_user(chat_id=chat_id, username=username, firstname=firstname, role=role)
 
 
 @dp.callback_query(lambda call: call.data == 'select_user' or call.data == 'select_admin')
@@ -97,6 +103,7 @@ async def log_chat(callback):
 
 
 async def main():
+    await connect_to_db()
     await dp.start_polling(bot)
 
 

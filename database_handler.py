@@ -1,5 +1,7 @@
 import logging
 import sqlite3
+import asyncpg
+import asyncio
 
 
 class SQLiteHandler:
@@ -57,6 +59,61 @@ class SQLiteHandler:
             return result.fetchone()
         except Exception as e:
             logging.error(f"Не удалось получить данные пользователя с chat_id: {chat_id}!")
+
+
+class PostrgreSQLHandler:
+    def __init__(self):
+        self._pool = None
+        self._table = None
+
+    async def set_table(self, table_name: str):
+        self._table = table_name
+
+    async def open_connection(self, dsn: str):
+        try:
+            self._pool = await asyncpg.create_pool(dsn)
+            logging.warning(f"Соединение с базой PostgreSQL установлено для таблицы {self._table}")
+        except Exception as e:
+            logging.error(f"Не удалось установить соединение с базой PostgreSQL, таблицей {self._table}")
+
+    async def close_connection(self):
+        try:
+            await self._pool.close()
+            logging.warning(f"Соединение с PostgreSQL базой, таблицей {self._table} закрыто!")
+        except Exception as e:
+            logging.error(f"Не удалось закрыть соединение с PostgreSQL базой, таблицей {self._table}")
+
+    async def create_table(self):
+        try:
+            async with self._pool.acquire() as connection:
+                async with connection.transaction():
+                    await connection.execute(f'''CREATE TABLE IF NOT EXISTS {self._table}
+                                                (id SERIAL PRIMARY KEY,
+                                                chat_id BIGINT UNIQUE NOT NULL,
+                                                username TEXT NOT NULL,
+                                                firstname TEXT,
+                                                role TEXT NOT NULL)''')
+                    logging.warning(f"Таблица {self._table} в базе PostgreSQL создана!")
+        except asyncpg.exceptions.PostgresError as e:
+            logging.error(f"Ошибка при создании талицы {self._table} в PostrgreSQL базе: {e}")
+
+    async def write_user(self, chat_id: int, username: str, firstname: str, role: str):
+        try:
+            async with self._pool.acquire() as connection:
+                await connection.execute(f'''INSERT INTO {self._table} (chat_id, username, firstname, role)
+                                            VALUES ($1, $2, $3, $4)''', chat_id, username, firstname, role)
+            logging.info(f"Пользователь {username} ({role}) успешно добавлен в БД")
+        except Exception as e:
+            logging.error(f"Ошибка при внесении пользователя в БД: {e}")
+
+    async def select_user(self, chat_id: int):
+        try:
+            async with self._pool.acquire() as connection:
+                query = f'SELECT * FROM {self._table} WHERE chat_id = $1'
+                result = await connection.fetchrow(query, chat_id)
+            return result
+        except Exception as e:
+            logging.error(f"Не удалось получить данные пользователя по chat_id: {chat_id}. Причина: {e}")
 
 
 # === DEBUG ===
