@@ -70,13 +70,15 @@ class PostgresqlHandler(BaseDatabaseHandler):
     async def get_users_info(self):
         try:
             async with self._pool.acquire() as conn:
-                result = await conn.execute(f'''
+                result = await conn.fetchrow(f'''
                 select count(*) as total_users,
                 count(case when role='admin' then 1 end) as admin_users_count, 
-                array_agg($1.*) as admin_users_data, 
+                array_agg({self._table}) as admin_users_data, 
                 count(case when role='user' then 1 end) as user_users_count 
-                from $1;
-                ''', self._table)
+                from {self._table}
+                ''')
+                logging.info(result)
             return result
         except asyncpg.exceptions.PostgresError as e:
             logging.error(f"Error getting users info from table {self._table}")
+            logging.error(e)

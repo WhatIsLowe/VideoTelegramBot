@@ -25,12 +25,31 @@ async def get_user_by_chat_id(chat_id: int) -> list | None:
 
 
 async def is_user_in_db(chat_id) -> bool:
+    """Проверяет наличие пользователя в базе данных.
+
+    :param chat_id: ID чата пользователя.
+    :return: True или False в зависимости от результата.
+    """
     user = await get_user_by_chat_id(chat_id)
     if user:
         return True
     else:
         return False
 
-async def get_users_count() -> list:
+
+async def get_users_count() -> tuple:
+    """Возвращает данные о количестве пользователей.
+
+
+    :return:
+    """
     # TODO: Сделать запрос кол-ва пользователей
+    info = await db_handler.get_users_info()
+    total_users = info['total_users']
+    admin_users_count = info['admin_users_count']
+    user_users_count = info['user_users_count']
+
+    admin_users_data = info['admin_users_data']
+    admin_usernames = [record['username'] for record in admin_users_data]
+    return total_users, admin_users_count, admin_usernames, user_users_count
     pass

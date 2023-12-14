@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 
 
-# TODO: Добавить метод смены роли
 class BaseDatabaseHandler(ABC):
     def __init__(self):
         self._table = None

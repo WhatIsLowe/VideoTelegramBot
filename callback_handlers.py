@@ -2,7 +2,7 @@ import aiogram
 import asyncio
 import logging
 
-from bot import bot, dp, db_handler
+from bot import bot, dp
 from database_handlers.functions import *
 from menu_manager import *
 
@@ -17,7 +17,7 @@ async def set_user_role(callback: aiogram.types.CallbackQuery) -> None:
         role = 'admin'
     await write_user_in_db(callback, role)
     text, keyboard = await main_menu(callback.message.chat.id)
-    bot.send_message(callback.message.chat.id, text=text, reply_markup=keyboard)
+    await bot.send_message(callback.message.chat.id, text=text, reply_markup=keyboard)
 
 
 # @dp.callback_query(lambda call: call.data == 'change_role')
@@ -49,11 +49,22 @@ async def change_role(callback: aiogram.types.CallbackQuery):
 
 @dp.callback_query(lambda call: call.data.startswith('admin'))
 async def admin_callback(call: aiogram.types.CallbackQuery):
+    # TODO: Добавить больше функционала в админ-панель
     if call.data == 'admin_menu':
         text, keyboard = await admin_menu()
         await bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=keyboard)
-    else:
-        # TODO: Добавить больше функционала в админ-панель
+    elif call.data == 'admin_get_users':
+        total_users, admin_users_count, admin_usernames, user_users_count = await get_users_count()
+        text = f"""
+            Общее кол-во пользователей: {total_users}
+            Кол-во обычных пользователей: {user_users_count}
+            Кол-во админов: {admin_users_count}
+        """
+        text_admins = "Админы:\n"
+        for admin in admin_usernames:
+            text_admins += '@'+admin+'\n'
+        await bot.send_message(chat_id=call.message.chat.id, text=text)
+        await bot.send_message(chat_id=call.message.chat.id, text=text_admins)
         pass
 
 

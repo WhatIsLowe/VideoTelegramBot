@@ -68,6 +68,7 @@ async def main_menu(chat_id: int) -> (str, InlineKeyboardMarkup):
         return text, await create_inline_menu(buttons, callbacks)
     else:
         # TODO: Вызов меню выбора роли пользователя (регистрация)
+
         pass
 
 
@@ -97,7 +98,7 @@ async def admin_menu() -> (str, InlineKeyboardMarkup):
     ]
 
     callbacks = [
-        ['admin_user_menu'],
+        ['admin_get_users'],
         ['None'],
         ['main_menu'],
     ]
