@@ -1,8 +1,10 @@
 import logging
 
+import aiogram.exceptions
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from database_handlers.functions import is_user_in_db, get_user_by_chat_id
+from bot import bot
 
 
 async def create_inline_menu(buttons: list[list], buttons_callback: list[list] = "None",
@@ -34,6 +36,18 @@ async def create_inline_menu(buttons: list[list], buttons_callback: list[list] =
                 buttons_line.append(InlineKeyboardButton(text=button, callback_data=button_callback))
             inline_keyboard.append(buttons_line)
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+
+async def change_inline_menu(chat_id: int, message_id: int, text: str = None,
+                             markup: InlineKeyboardMarkup = None) -> None:
+    try:
+        if text or markup:
+            await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=markup)
+    except aiogram.exceptions.TelegramBadRequest as e:
+        if 'Bad Request: message to edit not found' in str(e):
+            await bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+        else:
+            logging.error(f"Error in change_inline_menu: {e}")
 
 
 async def main_menu(chat_id: int) -> (str, InlineKeyboardMarkup):
