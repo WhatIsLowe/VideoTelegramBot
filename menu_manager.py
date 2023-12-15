@@ -40,6 +40,14 @@ async def create_inline_menu(buttons: list[list], buttons_callback: list[list] =
 
 async def change_inline_menu(chat_id: int, message_id: int, text: str = None,
                              markup: InlineKeyboardMarkup = None) -> None:
+    """Заменяет предыдущее инлайн-меню - новым.
+
+    Требуется передать хотя бы один из параметров text и (или) markup
+    :param chat_id: ID чата пользователя.
+    :param message_id: ID сообщения для замены.
+    :param text: Новый текст. По-умолчанию, None.
+    :param markup: Новая инлайн-разметка. По-умолчанию, None.
+    """
     try:
         if text or markup:
             await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=markup)
@@ -63,13 +71,13 @@ async def main_menu(chat_id: int) -> (str, InlineKeyboardMarkup):
     if user_data:
         logging.error(user_data[-1])
         buttons = [
-            ['1 опция'],
+            ['Смотреть видео'],
             ['2 опция'],
             ['3 опция'],
             ['Сменить роль'],
         ]
         callbacks = [
-            ['none'],
+            ['watch_video'],
             ['none'],
             ['none'],
             ['change_role'],
@@ -81,9 +89,7 @@ async def main_menu(chat_id: int) -> (str, InlineKeyboardMarkup):
 
         return text, await create_inline_menu(buttons, callbacks)
     else:
-        # TODO: Вызов меню выбора роли пользователя (регистрация)
-
-        pass
+        return await choose_role_menu()
 
 
 async def choose_role_menu(opt: str = None) -> (str, InlineKeyboardMarkup):
@@ -118,3 +124,20 @@ async def admin_menu() -> (str, InlineKeyboardMarkup):
     ]
 
     return text, await create_inline_menu(buttons, callbacks)
+
+
+async def under_video_menu() -> InlineKeyboardMarkup:
+    buttons = [
+        ["⬅️Предыдущее видео", "Следующее видео➡️"],
+        ["Выбрать серию"],
+        ["✅Подписаться на обновления✅"],
+        ["Главное меню"]
+    ]
+
+    buttons_callback = [
+        ['None', "None"],
+        ['select_episode'],
+        ['subscribe'],
+        ['main_menu']
+    ]
+    return await create_inline_menu(buttons, buttons_callback)

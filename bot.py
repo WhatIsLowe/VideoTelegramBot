@@ -1,12 +1,8 @@
 import asyncio
-import json
 import logging
 import os
 
-import aiogram.types
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import Bot, Dispatcher
 
 from database_handlers.postgresql_handler import PostgresqlHandler
 

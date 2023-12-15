@@ -72,6 +72,14 @@ async def main_menu_callback(callback: aiogram.types.CallbackQuery):
     await change_inline_menu(chat_id=callback.message.chat.id, message_id=callback.message.message_id, text=text,
                              markup=keyboard)
 
+
+@dp.callback_query(lambda call: call.data == 'watch_video')
+async def watch_video_callback(callback: aiogram.types.CallbackQuery):
+    keyboard = await under_video_menu()
+    text = 'Тестовая запись'
+    await change_inline_menu(chat_id=callback.message.chat.id, message_id=callback.message.message_id, text=text, markup=keyboard)
+
+
 @dp.callback_query()
 async def log_chat(callback):
     logging.info(callback)
