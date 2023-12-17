@@ -30,8 +30,8 @@ class BaseDatabaseHandler(ABC):
         pass
 
     @abstractmethod
-    async def create_table(self) -> None:
-        """Создает таблицу в базе данных
+    async def create_table_if_not_exist(self) -> None:
+        """Создает таблицу в базе данных (если такой нет)
 
         Для корректной работы метода необходимо предварительно установить имя таблицы с помощью метода set_table.
         """

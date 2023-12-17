@@ -1,7 +1,6 @@
-from bot import bot, dp
+from bot import bot, dp, db_handler, db_video_handler
 from database_handlers.functions import *
 from menu_manager import *
-
 
 # === CALLBACK HANDLERS ===
 
@@ -17,6 +16,7 @@ async def set_user_role(callback: aiogram.types.CallbackQuery) -> None:
     await change_inline_menu(chat_id=callback.message.chat.id, message_id=callback.message.message_id, text=text,
                              markup=keyboard)
 
+
 @dp.callback_query(lambda call: call.data == 'change_role')
 async def change_role(callback: aiogram.types.CallbackQuery) -> None:
     text, keyboard = await choose_role_menu(opt='change')
@@ -24,10 +24,9 @@ async def change_role(callback: aiogram.types.CallbackQuery) -> None:
     await change_inline_menu(chat_id=callback.message.chat.id, message_id=callback.message.message_id, text=text,
                              markup=keyboard)
 
+
 @dp.callback_query(lambda call: call.data.startswith('change'))
 async def change_role(callback: aiogram.types.CallbackQuery):
-    # FIXME: ОШИБКА!!! ИСПРАВИТЬ!!! Переброс на главное меню происходит раньше изменения роли в БД =>
-    #  меню формируется независимо от новой установленной роли
     if 'admin' in callback.data:
         role = 'admin'
     elif 'user' in callback.data:
@@ -39,7 +38,8 @@ async def change_role(callback: aiogram.types.CallbackQuery):
     # await bot.send_message(chat_id=callback.message.chat.id, text=f'Вы успешно сменили роль на {role}!\n{text}',
     #                        reply_markup=keyboard)
     # await change_inline_menu(callback.message.chat.id, callback.message.message_id, text="Жопа")
-    await change_inline_menu(chat_id=callback.message.chat.id, message_id=callback.message.message_id, text=text, markup=keyboard)
+    await change_inline_menu(chat_id=callback.message.chat.id, message_id=callback.message.message_id, text=text,
+                             markup=keyboard)
 
 
 @dp.callback_query(lambda call: call.data.startswith('admin'))
@@ -75,10 +75,29 @@ async def main_menu_callback(callback: aiogram.types.CallbackQuery):
 
 @dp.callback_query(lambda call: call.data == 'watch_video')
 async def watch_video_callback(callback: aiogram.types.CallbackQuery):
-    keyboard = await under_video_menu()
-    text = 'Тестовая запись'
-    await change_inline_menu(chat_id=callback.message.chat.id, message_id=callback.message.message_id, text=text, markup=keyboard)
+    categories = await get_categories()
+    keyboard = await categories_menu(categories)
+    text = 'Выберите категорию:'
+    await change_inline_menu(chat_id=callback.message.chat.id, message_id=callback.message.message_id, text=text,
+                             markup=keyboard)
 
+
+@dp.callback_query(lambda call: call.data.startswith('select_category'))
+async def select_category_callback(callback: aiogram.types.CallbackQuery):
+    category_id = int(callback.data.strip("_")[-1])
+    videos = await get_videos(category_id)
+    keyboard = await under_video_menu(False, False, videos, category_id=category_id)
+    await bot.send_video(chat_id=callback.message.chat.id, video=videos[0]['file_id'], reply_markup=keyboard)
+
+
+@dp.callback_query(lambda call: call.data.startswith('choose_video'))
+async def choose_video_callback(callback: aiogram.types.CallbackQuery):
+    """Обрабатывает нажатие кнопки "Выбрать видео"
+    """
+    category_id = int(callback.data.strip("_")[-1])
+    videos = await get_videos(category_id)
+    keyboard = await choose_video_menu(category_id, videos)
+    await bot.edit
 
 @dp.callback_query()
 async def log_chat(callback):

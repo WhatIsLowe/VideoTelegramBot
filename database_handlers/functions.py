@@ -1,5 +1,9 @@
+from typing import Set, Dict, Any, List
+
 import aiogram
-from bot import db_handler
+from aiogram.types import video
+
+from bot import db_handler, db_video_handler
 
 
 async def write_user_in_db(callback: aiogram.types.CallbackQuery, role: str) -> None:
@@ -53,3 +57,13 @@ async def get_users_count() -> tuple:
     admin_usernames = [record['username'] for record in admin_users_data]
     return total_users, admin_users_count, admin_usernames, user_users_count
     pass
+
+
+async def get_categories() -> dict:
+    categories = await db_video_handler.get_categories()
+    return {category["id"]: category["name"] for category in categories}
+
+
+async def get_videos(category_id: int) -> list[dict[str, Any]]:
+    videos = await db_video_handler.get_videos(category_id)
+    return [{'id': vid['id'], 'name': vid['name'], 'file_id': vid['telegram_file_id']} for vid in videos]

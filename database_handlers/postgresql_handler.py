@@ -1,3 +1,5 @@
+import abc
+
 import asyncpg
 import asyncio
 import logging
@@ -5,28 +7,55 @@ import logging
 from .base_database_handler import BaseDatabaseHandler
 
 
-class PostgresqlHandler(BaseDatabaseHandler):
+class ParentPostgresqlHandler:
+    _pool = None
+    # def __init__(self):
+    #     self._pool = None
+
+    @classmethod
+    async def open_connection(cls, dsn: str):
+        try:
+            cls._pool = await asyncpg.create_pool(dsn)
+            logging.info(f'Database Connection established')
+        except Exception as e:
+            logging.error(f'Could not connect to database: {e}')
+
+    @classmethod
+    async def close_connection(cls):
+        try:
+            await cls._pool.close()
+            logging.info(f'Database Connection closed')
+        except Exception as e:
+            logging.error(f'Could not close database connection: {e}')
+
+    @abc.abstractmethod
+    async def create_table_if_not_exist(self):
+        pass
+
+
+class PostgresqlHandler(ParentPostgresqlHandler, BaseDatabaseHandler, abc.ABC):
     def __init__(self):
         super().__init__()
-        self._pool = None
+        # self._pool = None
 
     async def set_table(self, table_name: str):
         self._table = table_name
 
-    async def open_connection(self, dsn: str):
-        try:
-            self._pool = await asyncpg.create_pool(dsn)
-        except Exception as e:
-            logging.error("Could not open connection to PostgreSQL")
+    #
+    # async def open_connection(self, dsn: str):
+    #     try:
+    #         self._pool = await asyncpg.create_pool(dsn)
+    #     except Exception as e:
+    #         logging.error("Could not open connection to PostgreSQL")
+    #
+    # async def close_connection(self):
+    #     try:
+    #         await self._pool.close()
+    #         logging.info(f"PostgreSQL connection closed")
+    #     except Exception as e:
+    #         logging.error(f"Could not close connection to PostgreSQL")
 
-    async def close_connection(self):
-        try:
-            await self._pool.close()
-            logging.info(f"PostgreSQL connection closed")
-        except Exception as e:
-            logging.error(f"Could not close connection to PostgreSQL")
-
-    async def create_table(self):
+    async def create_table_if_not_exist(self):
         try:
             async with self._pool.acquire() as conn:
                 async with conn.transaction():
@@ -82,3 +111,49 @@ class PostgresqlHandler(BaseDatabaseHandler):
         except asyncpg.exceptions.PostgresError as e:
             logging.error(f"Error getting users info from table {self._table}")
             logging.error(e)
+
+
+class PostgresqlVideoHandler(ParentPostgresqlHandler):
+    def __init__(self):
+        super().__init__()
+        self._video_table = None
+        self._categories_table = None
+
+    async def set_video_table(self, video_table):
+        self._video_table = video_table
+
+    async def set_categories_table(self, categories_table):
+        self._categories_table = categories_table
+
+    async def create_table_if_not_exist(self):
+        try:
+            async with self._pool.acquire() as conn:
+                await conn.execute(f'''
+                    CREATE TABLE IF NOT EXISTS {self._categories_table}
+                    (id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL);
+                    
+                    CREATE TABLE IF NOT EXISTS {self._video_table}
+                    (id SERIAL PRIMARY KEY,
+                    category_id INT REFERENCES {self._categories_table}(id),
+                    telegram_file_id TEXT NOT NULL,
+                    name TEXT NOT NULL);
+                ''')
+            logging.info(f"Tables {self._video_table}, {self._categories_table} connected")
+        except asyncpg.exceptions.PostgresError as e:
+            logging.error(f"Error creating tables: {e.args}")
+
+    async def get_categories(self):
+        try:
+            async with self._pool.acquire() as conn:
+                result = await conn.fetch(f"SELECT * FROM {self._categories_table}")
+                return result
+        except Exception as e:
+            logging.error(f"Error getting categories: {e}")
+    async def get_videos(self, category_id):
+        try:
+            async with self._pool.acquire() as conn:
+                result = await conn.fetch(f"SELECT * FROM {self._video_table} WHERE category_id = $1", category_id)
+            return result
+        except Exception as e:
+            logging.error(f"Error getting videos by category_id {category_id}: {e}")

@@ -52,8 +52,13 @@ async def change_inline_menu(chat_id: int, message_id: int, text: str = None,
         if text or markup:
             await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, reply_markup=markup)
     except aiogram.exceptions.TelegramBadRequest as e:
-        if 'Bad Request: message to edit not found' in str(e):
-            await bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+        if 'Bad Request: message to edit not found' in str(e) or 'message to edit' in str(e):
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=message_id)
+            except Exception as e:
+                logging.error(f"Невозможно удалить сообщение с id {message_id}")
+            finally:
+                await bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
         else:
             logging.error(f"Error in change_inline_menu: {e}")
 
@@ -126,18 +131,82 @@ async def admin_menu() -> (str, InlineKeyboardMarkup):
     return text, await create_inline_menu(buttons, callbacks)
 
 
-async def under_video_menu() -> InlineKeyboardMarkup:
-    buttons = [
-        ["⬅️Предыдущее видео", "Следующее видео➡️"],
-        ["Выбрать серию"],
-        ["✅Подписаться на обновления✅"],
-        ["Главное меню"]
-    ]
-
-    buttons_callback = [
-        ['None', "None"],
-        ['select_episode'],
-        ['subscribe'],
-        ['main_menu']
-    ]
+async def categories_menu(categories: dict, page: int = 0) -> InlineKeyboardMarkup:
+    PAGE_SIZE = 5
+    text = 'Выберите категорию'
+    keys = list(categories.keys())
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    buttons = [[categories[key]] for key in keys[start:end]]
+    buttons_callback = [["select_category_" + str(key)] for key in keys[start:end]]
+    if end < len(keys):
+        buttons.append(["Далее"])
+        buttons_callback.append(["next_page_" + str(page + 1)])
+    if page > 0:
+        buttons.append(["Назад"])
+        buttons_callback.append(["prev_page_" + str(page - 1)])
+    buttons.append(["Главное меню"])
+    buttons_callback.append(["main_menu"])
     return await create_inline_menu(buttons, buttons_callback)
+
+
+# async def under_video_menu() -> InlineKeyboardMarkup:
+#     buttons = [
+#         ["⬅️Предыдущее видео", "Следующее видео➡️"],
+#         ["Выбрать серию"],
+#         ["✅Подписаться на обновления✅"],
+#         ["Главное меню"]
+#     ]
+#
+#     buttons_callback = [
+#         ['None', "None"],
+#         ['select_episode'],
+#         ['subscribe'],
+#         ['main_menu']
+#     ]
+#     return await create_inline_menu(buttons, buttons_callback)
+
+async def under_video_menu(has_prev: bool, has_next: bool, videos: list, page: int = 0,
+                           category_id: int = 0) -> InlineKeyboardMarkup:
+    PAGE_SIZE = 3
+    start = page * PAGE_SIZE
+    end = start + PAGE_SIZE
+    buttons = [[video['name']] for video in videos[start:end]]
+    buttons_callback = [["select_video_" + str(video['id'])] for video in videos[start:end]]
+    if has_prev:
+        buttons.append(["⬅️Предыдущее видео"])
+        buttons_callback.append(["prev_video"])
+    if has_next:
+        buttons.append(["Следующее видео➡️"])
+        buttons_callback.append(["next_video"])
+    if len(videos) > 1:
+        buttons.append(["Выбрать видео"])
+        buttons_callback.append(['choose_video' + "_" + str(category_id)])
+
+    buttons.append(["✅Подписаться на обновления✅"])
+    buttons_callback.append(["subscribe"])
+    buttons.append(["Выбрать категорию"])
+    buttons_callback.append(['watch_video'])
+    buttons.append(["Главное меню"])
+    buttons_callback.append(["main_menu"])
+    return await create_inline_menu(buttons, buttons_callback)
+
+
+async def choose_video_menu(category_id: int, videos: list):
+    """Меню выбора видео из указанной категории.
+
+    :param category_id: ID категории.
+    :param videos: Список видео.
+    """
+
+    # Задаем кол-во видео на странице
+    VIDEOS_PER_PAGE = 4
+    buttons = []
+    buttons_callback = []
+
+    if len(videos) > VIDEOS_PER_PAGE:
+        # Страницы, кнопки назад/вперед
+        pass
+    buttons.append(["Назад"])
+    buttons_callback.append(['select_category' + "_" + str(category_id)])
+
