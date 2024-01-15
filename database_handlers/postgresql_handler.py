@@ -9,6 +9,7 @@ from .base_database_handler import BaseDatabaseHandler
 
 class ParentPostgresqlHandler:
     _pool = None
+
     # def __init__(self):
     #     self._pool = None
 
@@ -150,10 +151,21 @@ class PostgresqlVideoHandler(ParentPostgresqlHandler):
                 return result
         except Exception as e:
             logging.error(f"Error getting categories: {e}")
+
     async def get_videos(self, category_id):
         try:
             async with self._pool.acquire() as conn:
-                result = await conn.fetch(f"SELECT * FROM {self._video_table} WHERE category_id = $1", category_id)
+                result = await conn.fetch(f"SELECT id, name, telegram_file_id FROM {self._video_table} WHERE category_id = $1", category_id)
             return result
         except Exception as e:
             logging.error(f"Error getting videos by category_id {category_id}: {e}")
+
+    async def get_video_by_id(self, video_id):
+        try:
+            async with self._pool.acquire() as conn:
+                result = await conn.fetchrow(f"SELECT name, telegram_file_id, category_id FROM {self._video_table} WHERE id = $1", video_id)
+                logging.info(f"Video with id {video_id}: {result}")
+            return result
+        except Exception as e:
+            logging.error(f"Error getting video by ID. Video_id: {video_id}")
+            logging.error(e)

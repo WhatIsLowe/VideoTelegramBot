@@ -9,7 +9,7 @@ from database_handlers.postgresql_handler import ParentPostgresqlHandler, Postgr
 
 dotenv.load_dotenv()
 
-# Устанавливаем формат лога
+# Устанавливаем формат лога в формате [дата и время] - [уровень лога] - [сообщение]
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 

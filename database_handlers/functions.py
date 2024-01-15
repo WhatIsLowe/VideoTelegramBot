@@ -64,6 +64,11 @@ async def get_categories() -> dict:
     return {category["id"]: category["name"] for category in categories}
 
 
-async def get_videos(category_id: int) -> list[dict[str, Any]]:
+async def get_videos(category_id: int) -> List[dict[str, Any]]:
     videos = await db_video_handler.get_videos(category_id)
     return [{'id': vid['id'], 'name': vid['name'], 'file_id': vid['telegram_file_id']} for vid in videos]
+
+
+async def get_video(video_id: int) -> dict[str, Any]:
+    v = await db_video_handler.get_video_by_id(video_id)
+    return {'name': v['name'], 'file_id': v['telegram_file_id'], 'category_id': v['category_id']}

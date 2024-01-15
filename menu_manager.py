@@ -166,25 +166,61 @@ async def categories_menu(categories: dict, page: int = 0) -> InlineKeyboardMark
 #     ]
 #     return await create_inline_menu(buttons, buttons_callback)
 
-async def under_video_menu(has_prev: bool, has_next: bool, videos: list, page: int = 0,
-                           category_id: int = 0) -> InlineKeyboardMarkup:
-    PAGE_SIZE = 3
-    start = page * PAGE_SIZE
-    end = start + PAGE_SIZE
-    buttons = [[video['name']] for video in videos[start:end]]
-    buttons_callback = [["select_video_" + str(video['id'])] for video in videos[start:end]]
-    if has_prev:
-        buttons.append(["⬅️Предыдущее видео"])
-        buttons_callback.append(["prev_video"])
-    if has_next:
-        buttons.append(["Следующее видео➡️"])
-        buttons_callback.append(["next_video"])
-    if len(videos) > 1:
-        buttons.append(["Выбрать видео"])
-        buttons_callback.append(['choose_video' + "_" + str(category_id)])
+# async def under_video_menu(has_prev: bool, has_next: bool, videos: list, page: int = 0,
+#                            category_id: int = 0) -> InlineKeyboardMarkup:
+#     PAGE_SIZE = 3
+#     start = page * PAGE_SIZE
+#     end = start + PAGE_SIZE
+#     buttons = [[video['name']] for video in videos[start:end]]
+#     buttons_callback = [["select_video_" + str(video['id'])] for video in videos[start:end]]
+#     if has_prev:
+#         buttons.append(["⬅️Предыдущее видео"])
+#         buttons_callback.append(["prev_video"])
+#     if has_next:
+#         buttons.append(["Следующее видео➡️"])
+#         buttons_callback.append(["next_video"])
+#     if len(videos) > 1:
+#         buttons.append(["Выбрать видео"])
+#         buttons_callback.append(['choose_video' + "_" + str(category_id)])
+#
+#     buttons.append(["✅Подписаться на обновления✅"])
+#     buttons_callback.append(["subscribe"])
+#     buttons.append(["Выбрать категорию"])
+#     buttons_callback.append(['watch_video'])
+#     buttons.append(["Главное меню"])
+#     buttons_callback.append(["main_menu"])
+#     return await create_inline_menu(buttons, buttons_callback)
 
-    buttons.append(["✅Подписаться на обновления✅"])
-    buttons_callback.append(["subscribe"])
+async def under_video_menu(videos: list, video_index: int = 0, category_id: int = 0) -> InlineKeyboardMarkup:
+    has_prev = video_index > 0
+    has_next = video_index < len(videos) - 1
+    current_video = videos[video_index] if videos else None
+    buttons = []
+    buttons_callback = []
+    buttons.append([current_video['name']] if current_video else [])
+    buttons_callback.append(["ignore"])
+
+    page_buttons = []
+    page_callback = []
+    if has_prev:
+        page_buttons.append("⬅️Предыдущее видео")
+        page_callback.append(f"prev_video_{category_id}_{video_index}")
+    if has_next:
+        page_buttons.append("Следующее видео➡️")
+        page_callback.append(f"next_video_{category_id}_{video_index}")
+        logging.warning(f"next_video_{category_id}_{video_index}")
+
+    if page_buttons:
+        buttons.append(page_buttons)
+        buttons_callback.append(page_callback)
+
+    # if len(videos) > 1:
+    buttons.append(["Выбрать видео"])
+    buttons_callback.append([f'choose_video_{category_id}'])
+    logging.warning(f'choose_video_{category_id}')
+
+    # buttons.append(["✅Подписаться на обновления✅"])
+    # buttons_callback.append(["subscribe"])
     buttons.append(["Выбрать категорию"])
     buttons_callback.append(['watch_video'])
     buttons.append(["Главное меню"])
@@ -192,21 +228,28 @@ async def under_video_menu(has_prev: bool, has_next: bool, videos: list, page: i
     return await create_inline_menu(buttons, buttons_callback)
 
 
-async def choose_video_menu(category_id: int, videos: list):
+async def choose_video_menu(category_id: int, videos: list, page_index: int = 0) -> InlineKeyboardMarkup:
     """Меню выбора видео из указанной категории.
 
     :param category_id: ID категории.
     :param videos: Список видео.
+    :param page_index: Номер страницы.
     """
+    # Максимальное кол-во видео на 1 странице
+    max_videos_per_page = 2
 
-    # Задаем кол-во видео на странице
-    VIDEOS_PER_PAGE = 4
-    buttons = []
-    buttons_callback = []
+    pages = [videos[i:i + max_videos_per_page] for i in range(0, len(videos), max_videos_per_page)]
+    # TODO: CRITICAL!!! Решить проблему с колбэком кнопки с видео. Желательно использовать file_id (id файла телеграм), но судя по всему оно превышает допустимую длину в 64 байта.
+    buttons = [[InlineKeyboardButton(text=video['name'], callback_data=f'select_video_{video['id']}')] for video in
+               pages[page_index]]
 
-    if len(videos) > VIDEOS_PER_PAGE:
-        # Страницы, кнопки назад/вперед
-        pass
-    buttons.append(["Назад"])
-    buttons_callback.append(['select_category' + "_" + str(category_id)])
+    page_buttons = []
 
+    if page_index > 0:
+        page_buttons.append(InlineKeyboardButton(text="◀️Назад", callback_data=f'prev_video_page_{category_id}_{page_index}'))
+    if page_index + 1 < len(pages):
+        page_buttons.append(InlineKeyboardButton(text="Далее▶️", callback_data=f'next_video_page_{category_id}_{page_index}'))
+    if page_buttons:
+        buttons.append(page_buttons)
+    buttons.append([InlineKeyboardButton(text="Главное меню", callback_data='main_menu')])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)

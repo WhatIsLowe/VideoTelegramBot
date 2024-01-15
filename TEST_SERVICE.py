@@ -6,10 +6,10 @@ import os
 import asyncpg
 from aiogram.types import FSInputFile
 
+from dotenv import load_dotenv
+load_dotenv()
 
 async def upload_video(filepath: str, category_name: str):
-
-    # await bot.send_video(chat_id=CHANNEL_ID, video=open(filepath, 'rb'))
     video = FSInputFile(filepath)
     message = await bot.send_video(chat_id=CHANNEL_ID, video=video)
 
@@ -28,16 +28,21 @@ async def upload_video(filepath: str, category_name: str):
         VALUES ($1, $2, $3)''', category_id, telegram_file_id, os.path.basename(filepath))
     await conn.close()
 
+async def upload_all_videos(directory: str, category_name: str):
+    for filename in os.listdir(directory):
+        if filename.endswith(".mp4"): 
+            filepath = os.path.join(directory, filename)
+            await upload_video(filepath, category_name)
+            logging.info(f"File {filepath} uploaded!")
 
 async def main():
-    await upload_video("C:/Users/vlad_/Downloads/котик.mp4", 'Жопа')
+    await upload_all_videos("", '')
 
 if __name__ == '__main__':
-    TOKEN = "6877691480:AAEtX9Y3qnug970h0ycP04wSb0zFe9sNHrc"
-    CHANNEL_ID = "-1002053511456"
-    DSN = "postgres://postgres:2705071206@localhost:5432/postgres"
+    TOKEN = os.getenv('T_TOKEN')
+    CHANNEL_ID = os.getenv('CHANNEL_ID')
+    DSN = os.getenv('POSTGRES_CONNECTION_STRING')
 
     bot = Bot(TOKEN)
     dp = Dispatcher()
     asyncio.run(main())
-
