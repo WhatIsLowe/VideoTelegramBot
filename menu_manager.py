@@ -3,7 +3,7 @@ import logging
 import aiogram.exceptions
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from database_handlers.functions import is_user_in_db, get_user_by_chat_id
+from database_handlers.functions import get_user_by_chat_id
 from bot import bot
 
 
@@ -99,7 +99,6 @@ async def main_menu(chat_id: int) -> (str, InlineKeyboardMarkup):
 
 async def choose_role_menu(opt: str = None) -> (str, InlineKeyboardMarkup):
     """Возвращает меню выбора роли
-    TODO: Переписать этот дебильный Docstring
     :return: разметка клавиатуры
     """
     text = "Меню выбора роли"
@@ -118,13 +117,13 @@ async def admin_menu() -> (str, InlineKeyboardMarkup):
 
     buttons = [
         ['Статистика пользователей'],
-        ['МЕНЮ 2'],
+        ['Установить напоминание'],
         ['Главное меню'],
     ]
 
     callbacks = [
         ['admin_get_users'],
-        ['None'],
+        ['admin_set_reminder'],
         ['main_menu'],
     ]
 
@@ -150,47 +149,6 @@ async def categories_menu(categories: dict, page: int = 0) -> InlineKeyboardMark
     return await create_inline_menu(buttons, buttons_callback)
 
 
-# async def under_video_menu() -> InlineKeyboardMarkup:
-#     buttons = [
-#         ["⬅️Предыдущее видео", "Следующее видео➡️"],
-#         ["Выбрать серию"],
-#         ["✅Подписаться на обновления✅"],
-#         ["Главное меню"]
-#     ]
-#
-#     buttons_callback = [
-#         ['None', "None"],
-#         ['select_episode'],
-#         ['subscribe'],
-#         ['main_menu']
-#     ]
-#     return await create_inline_menu(buttons, buttons_callback)
-
-# async def under_video_menu(has_prev: bool, has_next: bool, videos: list, page: int = 0,
-#                            category_id: int = 0) -> InlineKeyboardMarkup:
-#     PAGE_SIZE = 3
-#     start = page * PAGE_SIZE
-#     end = start + PAGE_SIZE
-#     buttons = [[video['name']] for video in videos[start:end]]
-#     buttons_callback = [["select_video_" + str(video['id'])] for video in videos[start:end]]
-#     if has_prev:
-#         buttons.append(["⬅️Предыдущее видео"])
-#         buttons_callback.append(["prev_video"])
-#     if has_next:
-#         buttons.append(["Следующее видео➡️"])
-#         buttons_callback.append(["next_video"])
-#     if len(videos) > 1:
-#         buttons.append(["Выбрать видео"])
-#         buttons_callback.append(['choose_video' + "_" + str(category_id)])
-#
-#     buttons.append(["✅Подписаться на обновления✅"])
-#     buttons_callback.append(["subscribe"])
-#     buttons.append(["Выбрать категорию"])
-#     buttons_callback.append(['watch_video'])
-#     buttons.append(["Главное меню"])
-#     buttons_callback.append(["main_menu"])
-#     return await create_inline_menu(buttons, buttons_callback)
-
 async def under_video_menu(videos: list, video_index: int = 0, category_id: int = 0) -> InlineKeyboardMarkup:
     has_prev = video_index > 0
     has_next = video_index < len(videos) - 1
@@ -203,10 +161,10 @@ async def under_video_menu(videos: list, video_index: int = 0, category_id: int 
     page_buttons = []
     page_callback = []
     if has_prev:
-        page_buttons.append("⬅️Предыдущее видео")
+        page_buttons.append("⬅️Предыдущее видео WIP")
         page_callback.append(f"prev_video_{category_id}_{video_index}")
     if has_next:
-        page_buttons.append("Следующее видео➡️")
+        page_buttons.append("Следующее видео➡️ WIP")
         page_callback.append(f"next_video_{category_id}_{video_index}")
         logging.warning(f"next_video_{category_id}_{video_index}")
 
@@ -214,13 +172,10 @@ async def under_video_menu(videos: list, video_index: int = 0, category_id: int 
         buttons.append(page_buttons)
         buttons_callback.append(page_callback)
 
-    # if len(videos) > 1:
     buttons.append(["Выбрать видео"])
     buttons_callback.append([f'choose_video_{category_id}'])
     logging.warning(f'choose_video_{category_id}')
 
-    # buttons.append(["✅Подписаться на обновления✅"])
-    # buttons_callback.append(["subscribe"])
     buttons.append(["Выбрать категорию"])
     buttons_callback.append(['watch_video'])
     buttons.append(["Главное меню"])

@@ -4,8 +4,9 @@ import os
 
 import dotenv
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
 
-from database_handlers.postgresql_handler import ParentPostgresqlHandler, PostgresqlHandler, PostgresqlVideoHandler
+from database_handlers.postgresql_handler import ParentPostgresqlHandler, PostgresqlHandler, PostgresqlVideoHandler, PostgresqlRemindersHandler
 
 dotenv.load_dotenv()
 
@@ -14,26 +15,23 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 bot = Bot(os.getenv("TOKEN"))
-dp = Dispatcher()
+dp = Dispatcher(storage=MemoryStorage())
 db_handler = PostgresqlHandler()
 db_video_handler = PostgresqlVideoHandler()
+db_reminder_handler = PostgresqlRemindersHandler()
 
 
 async def connect_to_db():
     # Устанавливаем название таблицы с данными пользователей
     await db_handler.set_table('users')
 
-    # Устанавливаем название таблицы с данными для видео
-    await db_video_handler.set_video_table('videos')
-    # Для категорий видео
-    await db_video_handler.set_categories_table('categories')
-
     # Подключаемся к БД Postgres
     await ParentPostgresqlHandler.open_connection(os.getenv('POSTGRES_CONNECTION_STRING'))
 
-    # Создаем таблицы users, videos, categories если их нет
+    # Создаем таблицы в базе данных если их нет
     await db_handler.create_table_if_not_exist()
     await db_video_handler.create_table_if_not_exist()
+    await db_reminder_handler.create_table_if_not_exist()
 
 
 async def main():

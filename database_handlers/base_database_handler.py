@@ -38,11 +38,20 @@ class BaseDatabaseHandler(ABC):
         pass
 
     @abstractmethod
-    async def get_user(self, chat_id: int) -> tuple | None:
+    async def get_user_by_id(self, chat_id: int) -> tuple | None:
         """Получает данные пользователя из базы данных по его chat_id.
 
         Возвращает кортеж с данными пользователя если он найден, или None - если не найден.
         :param chat_id: ID чата пользователя.
+        """
+        pass
+
+    @abstractmethod
+    async def get_user_by_username(self, username: str) -> tuple | None:
+        """Получает данные пользователя из базы данных по его username.
+
+        Возвращает кортеж с данными пользователя если он найден, или None - если не найден.
+        :param username: ID чата пользователя.
         """
         pass
 
