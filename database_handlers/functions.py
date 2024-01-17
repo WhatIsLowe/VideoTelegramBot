@@ -38,7 +38,7 @@ async def get_user_by_username(username: str) -> dict | None:
     """
     user = await db_handler.get_user_by_username(username=username)
     if user:
-        return {'id': user['id'], 'username': user['username']}
+        return {'id': user['id'], 'username': user['username'], 'chat_id': user['chat_id']}
     return None
 
 
@@ -162,3 +162,9 @@ async def add_reminder(user: str, date_time: datetime, text: str) -> None:
 
 async def delete_reminder(reminder_id: int) -> None:
     await db_reminder_handler.delete_reminder(reminder_id=reminder_id)
+
+async def get_current_reminders():
+    reminders = await db_reminder_handler.get_current_reminders()
+    if reminders is None:
+        return None
+    return [{'id': reminder['id'], 'username': reminder['username'], 'text': reminder['text']} for reminder in reminders]

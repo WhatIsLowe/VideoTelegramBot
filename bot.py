@@ -33,10 +33,24 @@ async def connect_to_db():
     await db_video_handler.create_table_if_not_exist()
     await db_reminder_handler.create_table_if_not_exist()
 
+async def check_reminders(bot):
+    while True:
+        reminders = await get_current_reminders()
+        logging.info("Current reminders checked")
+        if reminders:
+            for reminder in reminders:
+                user = await get_user_by_username(reminder['username'])
+                chat_id = user['chat_id']
+                text = reminder['text']
+                await bot.send_message(chat_id=chat_id, text=f"НАПОМИНАНИЕ!\n{text}")
+                await delete_reminder(reminder['id'])
+        await asyncio.sleep(60)
 
 async def main():
     # Запускаем функцию подключения к БД
     await connect_to_db()
+    # запускаем сервис проверки напоминаний
+    asyncio.create_task(check_reminders(bot))
     # Запускаем бота
     await dp.start_polling(bot)
 
@@ -47,6 +61,8 @@ if __name__ == "__main__":
     from callback_handlers import *
     from menu_manager import *
     from message_handlers import *
+
+    from database_handlers.functions import get_current_reminders, delete_reminder, get_user_by_username
 
     # Запускаем функцию main
     asyncio.run(main())

@@ -70,7 +70,7 @@ class PostgresqlHandler(ParentPostgresqlHandler, BaseDatabaseHandler, abc.ABC):
     async def get_user_by_username(self, username: str):
         try:
             async with self._pool.acquire() as conn:
-                result = await conn.fetchrow(f"SELECT id, username FROM {self._table} WHERE username = $1", username)
+                result = await conn.fetchrow(f"SELECT id, chat_id, username FROM {self._table} WHERE username = $1", username)
             return result
         except Exception as e:
             logging.error(f"Error getting user {username}: {e}")
@@ -236,7 +236,7 @@ class PostgresqlVideoHandler(ParentPostgresqlHandler):
             async with self._pool.acquire() as conn:
                 result = await conn.fetchrow(f"""SELECT S.id
                                                  FROM {self._subjects_table} S
-                                                 JOIN {self._teachers_table} T ON C.id = T.subject_id
+                                                 JOIN {self._teachers_table} T ON S.id = T.subject_id
                                                  JOIN {self._video_table} V ON T.id = V.teacher_id
                                                  WHERE V.id = $1""", video_id)
             return result
@@ -271,6 +271,15 @@ class PostgresqlRemindersHandler(ParentPostgresqlHandler):
                 logging.info(f"Added reminder: {username}, {date_time}, {text}")
         except Exception as e:
             logging.error(f"Error adding reminder: {username}, {date_time}, {text}")
+
+    async def get_current_reminders(self):
+        """ Возвращает напоминания на текущий момент """
+        try:
+            async with self._pool.acquire() as conn:
+                reminders = await conn.fetch(f"SELECT * FROM {self._reminders_table} WHERE date_time AT TIME ZONE 'Europe/Moscow' <= NOW() AT TIME ZONE 'Europe/Moscow';")
+            return reminders
+        except Exception as e:
+            logging.error(f"Error getting current reminders: {e}")
 
     async def delete_reminder(self, reminder_id: int):
         try:
