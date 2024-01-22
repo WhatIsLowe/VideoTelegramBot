@@ -8,8 +8,11 @@ from models import Form
 from aiogram import types
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters.state import State
 
 import datetime
+import pytz
+
 
 # === CALLBACK HANDLERS ===
 
@@ -147,13 +150,16 @@ async def select_video(callback: aiogram.types.CallbackQuery):
 reminder_callback_set = 'admin_set_reminder'
 reminder_callback_confirm = 'admin_confirm_reminder'
 
+
 # Обработчик кнопки "Установить напоминание"
 @dp.callback_query(lambda c: c.data == "admin_set_reminder")
 async def set_reminder_handler(callback_query: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, 'Введите ник пользователя:')
+    await bot.send_message(callback_query.from_user.id, 'Введите ник пользователя:', reply_markup=await create_cancel_button())
+    await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
     # await Form.user_input.set()
     await state.set_state(Form.user_input)
+
 
 # Обработчик ввода пользователя
 @dp.message(Form.user_input)
@@ -165,24 +171,21 @@ async def process_user_input(message: types.Message, state: FSMContext):
         await bot.send_message(message.from_user.id, 'Пользователь не найден, попробуйте еще раз.')
     else:
         await state.update_data(username=user['username'])
-        await bot.send_message(message.from_user.id, 'Выберите дату в формате ДД-ММ-ГГГГ:')
+        now = datetime.datetime.now(pytz.timezone('Europe/Moscow'))
+        await bot.send_message(message.from_user.id, 'Выберите дату:',
+                               reply_markup=await create_calendar(now.month, now.year))
         # await Form.date_input.set()
         await state.set_state(Form.date_input.state)
 
-# Обработчик ввода даты
-@dp.message(Form.date_input)
-async def process_date_input(message: types.Message, state: FSMContext):
-    date_str = message.text
-    try:
-        date = datetime.datetime.strptime(date_str, '%d-%m-%Y').date()
-        if date < datetime.date.today():
-            raise ValueError
-        await state.update_data(date=date)
-        await bot.send_message(message.from_user.id, 'Введите время в формате ЧЧ:ММ:')
-        # await Form.time_input.set()
-        await state.set_state(Form.time_input)
-    except ValueError:
-        await bot.send_message(message.from_user.id, 'Неверный формат даты или дата в прошлом, попробуйте еще раз.')
+
+@dp.callback_query(Form.date_input, lambda call: call.data.startswith('select-day_'))
+async def process_date_input(call: types.CallbackQuery, state: FSMContext):
+    date_str = call.data[len('select-day_'):]
+    date = datetime.datetime.strptime(date_str, '%d-%m-%Y').date()
+    await state.update_data(date=date)
+    await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Введите время в формате ЧЧ:ММ:', reply_markup=await create_cancel_button())
+    await state.set_state(Form.time_input.state)
+
 
 # Обработчик ввода времени
 @dp.message(Form.time_input)
@@ -191,11 +194,12 @@ async def process_time_input(message: types.Message, state: FSMContext):
     try:
         time = datetime.datetime.strptime(time_str, '%H:%M').time()
         await state.update_data(time=time)
-        await bot.send_message(message.from_user.id, 'Введите текст напоминания:')
+        await bot.send_message(message.from_user.id, 'Введите текст напоминания:', reply_markup=await create_cancel_button())
         # await Form.text_input.set()
         await state.set_state(Form.text_input)
     except ValueError:
         await bot.send_message(message.from_user.id, 'Неверный формат времени, попробуйте еще раз.')
+
 
 # Обработчик ввода текста напоминания
 @dp.message(Form.text_input)
@@ -205,24 +209,34 @@ async def process_text_input(message: types.Message, state: FSMContext):
     data = await state.get_data()
     accept_button = InlineKeyboardButton(text="Установить", callback_data=reminder_callback_confirm)
     markup = InlineKeyboardMarkup(inline_keyboard=[[accept_button]])
-    await bot.send_message(message.from_user.id, f'Установить напоминание?\nПользователь: {data["username"]}\nДата: {data["date"]}\nВремя: {data["time"]}\nТекст сообщения: {data["text"]}', reply_markup=markup)
+    await bot.send_message(message.from_user.id,
+                           f'Установить напоминание?\nПользователь: {data["username"]}\nДата: {data["date"]}\nВремя: {data["time"]}\nТекст сообщения: {data["text"]}',
+                           reply_markup=markup)
     # await Form.confirm_input.set()
-    await state.set_state('*')
+    await state.set_state(Form.finish_reminder)
+
 
 # Обработчик кнопки "Установить"
-@dp.callback_query(lambda c: c.data == reminder_callback_confirm)
+@dp.callback_query(Form.finish_reminder, lambda c: c.data == reminder_callback_confirm)
 async def confirm_reminder_handler(callback_query: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback_query.id)
     data = await state.get_data()
-    date_time = datetime.datetime.combine(data['date'], data['time'])
+    date_time = pytz.timezone('Europe/Moscow').localize(datetime.datetime.combine(data['date'], data['time']))
     await add_reminder(user=data['username'], date_time=date_time, text=data['text'])
     await bot.delete_message(callback_query.message.chat.id, callback_query.message.message_id)
     markup = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Назад", callback_data='admin_menu')]])
     await bot.send_message(callback_query.from_user.id, 'Напоминание установлено.', reply_markup=markup)
     await state.clear()
 
-async def clear_state(state: FSMContext):
-    await state.clear()
+
+@dp.callback_query(lambda c: c.data == 'cancel_reminder', State('*'))
+async def cancel_reminder_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is not None:
+        await bot.answer_callback_query(callback_query.id)
+        await state.clear()
+        await bot.send_message(callback_query.from_user.id, 'Установка напоминания отменена.')
+
 
 @dp.callback_query(lambda call: call.data.startswith('admin'))
 async def admin_callback(callback: aiogram.types.CallbackQuery):
@@ -254,7 +268,35 @@ async def admin_callback(callback: aiogram.types.CallbackQuery):
         await bot.send_message(chat_id=callback.message.chat.id, text=text_admins)
         text, keyboard = await admin_menu()
         await bot.send_message(chat_id=callback.message.chat.id, text=text, reply_markup=keyboard)
+
+
+# === CALENDAR HANDLERS ===
+
+@dp.callback_query(lambda call: 'prev-month' in call.data)
+async def previous_month(call: types.CallbackQuery):
+    splitted_callback_data = call.data.split("_")
+    year = int(splitted_callback_data[1])
+    month = int(splitted_callback_data[2])
+    month -= 1
+    if month < 1:
+        month = 12
+        year -= 1
+    new_calendar = await create_calendar(month, year)
+    await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Выберите дату:", reply_markup=new_calendar)
+
+@dp.callback_query(lambda call: 'next-month' in call.data)
+async def next_month(call: types.CallbackQuery):
+    splitted_callback_data = call.data.split("_")
+    year = int(splitted_callback_data[1])
+    month = int(splitted_callback_data[2])
+    month += 1
+    if month > 12:
+        month = 1
+        year += 1
+    new_calendar = await create_calendar(month, year)
+    await bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Выберите дату:", reply_markup=new_calendar)
+
 # === DEBUG ===
-@dp.callback_query()
-async def log_chat(callback):
-    logging.info(callback)
+# @dp.callback_query()
+# async def log_chat(callback):
+#     logging.info(callback)

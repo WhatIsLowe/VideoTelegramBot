@@ -1,3 +1,5 @@
+import calendar
+import datetime
 import logging
 
 import aiogram.exceptions
@@ -77,14 +79,10 @@ async def main_menu(chat_id: int) -> (str, InlineKeyboardMarkup):
         logging.error(user_data[-1])
         buttons = [
             ['Смотреть видео'],
-            ['2 опция'],
-            ['3 опция'],
             ['Сменить роль'],
         ]
         callbacks = [
             ['watch_video'],
-            ['none'],
-            ['none'],
             ['change_role'],
         ]
         if user_data[-1] == 'admin':
@@ -160,13 +158,13 @@ async def under_video_menu(videos: list, video_index: int = 0, category_id: int 
 
     page_buttons = []
     page_callback = []
-    if has_prev:
-        page_buttons.append("⬅️Предыдущее видео WIP")
-        page_callback.append(f"prev_video_{category_id}_{video_index}")
-    if has_next:
-        page_buttons.append("Следующее видео➡️ WIP")
-        page_callback.append(f"next_video_{category_id}_{video_index}")
-        logging.warning(f"next_video_{category_id}_{video_index}")
+    # if has_prev:
+    #     page_buttons.append("⬅️Предыдущее видео WIP")
+    #     page_callback.append(f"prev_video_{category_id}_{video_index}")
+    # if has_next:
+    #     page_buttons.append("Следующее видео➡️ WIP")
+    #     page_callback.append(f"next_video_{category_id}_{video_index}")
+    #     logging.warning(f"next_video_{category_id}_{video_index}")
 
     if page_buttons:
         buttons.append(page_buttons)
@@ -201,10 +199,56 @@ async def choose_video_menu(category_id: int, videos: list, page_index: int = 0)
     page_buttons = []
 
     if page_index > 0:
-        page_buttons.append(InlineKeyboardButton(text="◀️Назад", callback_data=f'prev_video_page_{category_id}_{page_index}'))
+        page_buttons.append(
+            InlineKeyboardButton(text="◀️Назад", callback_data=f'prev_video_page_{category_id}_{page_index}'))
     if page_index + 1 < len(pages):
-        page_buttons.append(InlineKeyboardButton(text="Далее▶️", callback_data=f'next_video_page_{category_id}_{page_index}'))
+        page_buttons.append(
+            InlineKeyboardButton(text="Далее▶️", callback_data=f'next_video_page_{category_id}_{page_index}'))
     if page_buttons:
         buttons.append(page_buttons)
     buttons.append([InlineKeyboardButton(text="Главное меню", callback_data='main_menu')])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# === CANCEL REMINDER ===
+
+async def create_cancel_button() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="Отмена", callback_data="cancel_reminder")]])
+
+
+# === CALENDAR ===
+
+async def create_calendar(month, year):
+    inline_keyboard = []
+    row = []
+    row.append(InlineKeyboardButton(text=calendar.month_name[month] + " " + str(year), callback_data="ignore"))
+    inline_keyboard.append(row)
+    weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+    row = []
+    for day in weekdays:
+        row.append(InlineKeyboardButton(text=day, callback_data='ignore'))
+    inline_keyboard.append(row)
+
+    my_calendar = calendar.monthcalendar(year, month)
+    for week in my_calendar:
+        row = []
+        for day in week:
+            if day == 0:
+                row.append(InlineKeyboardButton(text=" ", callback_data='ignore'))
+            else:
+                if datetime.date.today() > datetime.date(year, month, day):
+                    row.append(InlineKeyboardButton(text=" ", callback_data='ignore'))
+                else:
+                    date_str = datetime.datetime(year, month, day).strftime('%d-%m-%Y')
+                    row.append(InlineKeyboardButton(text=str(day), callback_data="select-day_" + date_str))
+        inline_keyboard.append(row)
+
+    row = []
+    row.append(InlineKeyboardButton(text="<", callback_data='prev-month_' + str(year) + '_' + str(month)))
+    row.append(InlineKeyboardButton(text=" ", callback_data='ignore'))
+    row.append(InlineKeyboardButton(text=">", callback_data='next-month_' + str(year) + '_' + str(month)))
+    inline_keyboard.append(row)
+
+    markup = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+    return markup

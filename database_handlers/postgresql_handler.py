@@ -109,6 +109,13 @@ class PostgresqlHandler(ParentPostgresqlHandler, BaseDatabaseHandler, abc.ABC):
             logging.error(f"Error getting users info from table {self._table}")
             logging.error(e)
 
+    async def get_users(self):
+        try:
+            async with self._pool.acquire() as conn:
+                result = await conn.fetch(f"select * from {self._table} where role='user'")
+                return result
+        except Exception as e:
+            logging.error(f"Error getting users from table {self._table}: {e}")
 
 class PostgresqlVideoHandler(ParentPostgresqlHandler):
     def __init__(self):
@@ -257,7 +264,7 @@ class PostgresqlRemindersHandler(ParentPostgresqlHandler):
                     CREATE TABLE IF NOT EXISTS {self._reminders_table}
                     (id SERIAL PRIMARY KEY,
                     username TEXT NOT NULL,
-                    date_time TIMESTAMP NOT NULL,
+                    date_time TIMESTAMPTZ NOT NULL,
                     text TEXT NOT NULL);''')
             logging.info(f"Table {self._reminders_table} connected!")
         except Exception as e:
@@ -270,7 +277,7 @@ class PostgresqlRemindersHandler(ParentPostgresqlHandler):
                                        VALUES ($1, $2, $3);""", username, date_time, text)
                 logging.info(f"Added reminder: {username}, {date_time}, {text}")
         except Exception as e:
-            logging.error(f"Error adding reminder: {username}, {date_time}, {text}")
+            logging.error(f"Error adding reminder: {username}, {date_time}, {text} | {e}")
 
     async def get_current_reminders(self):
         """ Возвращает напоминания на текущий момент """

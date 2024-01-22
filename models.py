@@ -4,6 +4,7 @@ class Form(StatesGroup):
     date_input = State()
     time_input = State()
     text_input = State()
+    finish_reminder = State()
 
 
 class States(StatesGroup):
