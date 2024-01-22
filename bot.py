@@ -1,104 +1,73 @@
 import asyncio
-import json
 import logging
 import os
 
-import aiogram.types
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-from database_handler import SQLiteHandler
-
 import dotenv
+from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
+
+from database_handlers.postgresql_handler import ParentPostgresqlHandler, PostgresqlHandler, PostgresqlVideoHandler, \
+    PostgresqlRemindersHandler
 
 dotenv.load_dotenv()
 
+# Устанавливаем формат лога в формате [дата и время] - [уровень лога] - [сообщение]
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 bot = Bot(os.getenv("TOKEN"))
-dp = Dispatcher()
-
-# === Database ===
-db_handler = SQLiteHandler()
-db_handler.set_table('users')
-db_handler.open_connection()
+dp = Dispatcher(storage=MemoryStorage())
+db_handler = PostgresqlHandler()
+db_video_handler = PostgresqlVideoHandler()
+db_reminder_handler = PostgresqlRemindersHandler()
 
 
-async def create_inline_menu(buttons: list[list], buttons_callback: list[list] = "None"):
-    inline_keyboard = []
-    if buttons:
-        for row, callback_row in zip(buttons, buttons_callback):
-            buttons_line = []
-            for button, button_callback in zip(row, callback_row):
-                buttons_line.append(InlineKeyboardButton(text=button, callback_data=button_callback))
-            inline_keyboard.append(buttons_line)
-    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+async def connect_to_db():
+    # Устанавливаем название таблицы с данными пользователей
+    await db_handler.set_table('users')
+
+    # Подключаемся к БД Postgres
+    await ParentPostgresqlHandler.open_connection(os.getenv('POSTGRES_CONNECTION_STRING'))
+
+    # Создаем таблицы в базе данных если их нет
+    await db_handler.create_table_if_not_exist()
+    await db_video_handler.create_table_if_not_exist()
+    await db_reminder_handler.create_table_if_not_exist()
 
 
-@dp.message(CommandStart())
-async def start_message(message: types.Message):
-    if is_user_in_db(message.chat.id):
-        await show_main_menu(message.chat.id)
-    else:
-        buttons = [
-            ["Пользователь", "Администратор"]
-        ]
-        buttons_callback = [
-            ['select_user', 'select_admin']
-        ]
-        keyboard = await create_inline_menu(buttons, buttons_callback)
-        await message.answer(f"Привет! Я работаю!\nВыбери свою роль:", reply_markup=keyboard)
 
-
-async def show_main_menu(chat_id):
-    buttons = [
-        ['1 опция'],
-        ['2 опция'],
-        ['3 опция'],
-        ['Сменить роль'],
-    ]
-    keyboard = await create_inline_menu(buttons)
-    await bot.send_message(chat_id=chat_id, text="Главное меню", reply_markup=keyboard)
-
-
-def is_user_in_db(chat_id) -> bool:
-    user = get_user_by_chat_id(chat_id)
-    if user:
-        return True
-    else:
-        return False
-
-
-def get_user_by_chat_id(chat_id: int) -> list | None:
-    result = db_handler.select_user(chat_id=chat_id)
-    return result
-
-
-async def write_user_in_db(callback: aiogram.types.CallbackQuery, role: str) -> None:
-    chat_id = callback.message.chat.id
-    username = callback.from_user.username
-    firstname = callback.from_user.first_name
-    db_handler.write_user(chat_id=chat_id, username=username, firstname=firstname, role=role)
-
-
-@dp.callback_query(lambda call: call.data == 'select_user' or call.data == 'select_admin')
-async def set_user_role(callback: aiogram.types.CallbackQuery) -> None:
-    if callback.data == 'select_user':
-        role = 'user'
-    else:
-        role = 'admin'
-    await write_user_in_db(callback, role)
-
-
-@dp.callback_query()
-async def log_chat(callback):
-    logging.info(callback)
 
 
 async def main():
+    # Запускаем функцию подключения к БД
+    await connect_to_db()
+    # запускаем сервис проверки напоминаний
+    asyncio.create_task(check_reminders(bot))
+    # Запускаем бота
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
+    # Выполняем импорт необходимых модулей
+    from database_handlers.functions import *
+    from callback_handlers import *
+    from menu_manager import *
+    from message_handlers import *
+
+    from database_handlers.functions import get_current_reminders, delete_reminder, get_user_by_username
+
+
+    async def check_reminders(bot: Bot):
+        while True:
+            reminders = await get_current_reminders()
+            logging.info("Current reminders checked")
+            if reminders:
+                for reminder in reminders:
+                    user = await get_user_by_username(reminder['username'])
+                    chat_id = user['chat_id']
+                    text = reminder['text']
+                    await bot.send_message(chat_id=chat_id, text=f"НАПОМИНАНИЕ!\n{text}")
+                    await delete_reminder(reminder['id'])
+            await asyncio.sleep(60)
+
+    # Запускаем функцию main
     asyncio.run(main())
